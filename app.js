@@ -27,8 +27,9 @@ const opts = qs();
 if (opts.facing === "user" || opts.facing === "environment") facingMode = opts.facing;
 
 function showOverlay(text, hint = "") {
-  els.overlayText.textContent = text;
-  els.overlay.hidden = false;
+  const t = (text || "").trim();
+  els.overlayText.textContent = t;
+  els.overlay.hidden = t.length === 0;
 }
 
 function hideOverlay() {
@@ -71,9 +72,15 @@ async function startCamera() {
       els.video.playsInline = true;
       els.video.setAttribute("playsinline", "");
       els.video.setAttribute("webkit-playsinline", "");
+      els.video.controls = false;
+      els.video.removeAttribute("controls");
+      els.video.setAttribute("controlslist", "nodownload noplaybackrate noremoteplayback");
+      els.video.disableRemotePlayback = true;
       els.video.disablePictureInPicture = true;
       await els.video.play().catch(() => {});
     } catch {}
+    // If something pauses the video (macOS overlays), immediately resume.
+    els.video.onpause = () => els.video.play().catch(() => {});
     hideOverlay();
     els.btnShot.disabled = false;
   } catch (e) {
@@ -81,7 +88,7 @@ async function startCamera() {
     const msg = e?.message || String(e);
 
     if (window.isSecureContext !== true) {
-      showOverlay("");
+      hideOverlay();
       els.btnShot.disabled = false;
       return;
     }
@@ -89,12 +96,12 @@ async function startCamera() {
     // In some browsers getUserMedia needs a user gesture.
     const gestureLikely = name === "NotAllowedError" || name === "SecurityError";
     if (gestureLikely) {
-      showOverlay("");
+      hideOverlay();
       els.btnShot.disabled = false;
       return;
     }
 
-    showOverlay("");
+    hideOverlay();
     els.btnShot.disabled = false;
   }
 }
@@ -171,7 +178,7 @@ async function takePhoto() {
       );
     }
   } catch (e) {
-    showOverlay("");
+    hideOverlay();
   } finally {
     els.btnShot.disabled = false;
   }

@@ -77,6 +77,8 @@ body {
   place-items: center;
   padding: 18px;
   background: var(--overlay);
+  /* Never block shutter clicks */
+  pointer-events: none;
 }
 
 .overlayText {
@@ -84,6 +86,16 @@ body {
   line-height: 1.35;
   text-align: center;
   max-width: 520px;
+}
+
+/* Hide native media controls/overlays (Safari/Chrome) */
+video::-webkit-media-controls,
+video::-webkit-media-controls-enclosure,
+video::-webkit-media-controls-panel,
+video::-webkit-media-controls-overlay-play-button,
+video::-webkit-media-controls-start-playback-button {
+  display: none !important;
+  -webkit-appearance: none;
 }
 
 /* Embed-friendly: allow the host to make background transparent if desired */
