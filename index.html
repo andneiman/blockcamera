@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="color-scheme" content="dark light" />
+    <title>Camera Embed</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <main class="app" id="app" aria-live="polite">
+      <section class="panel" id="panelInit">
+        <div class="title">Камера</div>
+        <div class="subtitle" id="initText">Запрашиваем доступ к камере…</div>
+        <button class="btn" id="btnEnable" type="button" hidden>Включить камеру</button>
+        <div class="hint" id="initHint">
+          Для работы нужен HTTPS (или <span class="mono">localhost</span>).
+        </div>
+      </section>
+
+      <section class="panel" id="panelPreview" hidden>
+        <div class="frame">
+          <video id="video" autoplay muted playsinline></video>
+        </div>
+        <div class="row">
+          <button class="btn primary" id="btnShot" type="button">Сделать фото</button>
+          <button class="btn" id="btnFlip" type="button" title="Переключить камеру">↺</button>
+        </div>
+      </section>
+
+      <section class="panel" id="panelLoading" hidden>
+        <div class="spinner" aria-hidden="true"></div>
+        <div class="subtitle">Обрабатываем фото…</div>
+      </section>
+
+      <section class="panel result" id="panelResult" hidden>
+        <img id="resultImg" alt="Снимок" />
+      </section>
+
+      <canvas id="canvas" hidden></canvas>
+    </main>
+
+    <script src="./app.js"></script>
+  </body>
+</html>
