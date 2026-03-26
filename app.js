@@ -1,22 +1,18 @@
 /* global URL, navigator, window, document */
 
 const els = {
-  panelInit: document.getElementById("panelInit"),
-  panelPreview: document.getElementById("panelPreview"),
-  panelLoading: document.getElementById("panelLoading"),
-  panelResult: document.getElementById("panelResult"),
-  initText: document.getElementById("initText"),
-  initHint: document.getElementById("initHint"),
-  btnEnable: document.getElementById("btnEnable"),
   btnShot: document.getElementById("btnShot"),
-  btnFlip: document.getElementById("btnFlip"),
   video: document.getElementById("video"),
   canvas: document.getElementById("canvas"),
   resultImg: document.getElementById("resultImg"),
+  overlay: document.getElementById("overlay"),
+  overlayText: document.getElementById("overlayText"),
+  overlayHint: document.getElementById("overlayHint"),
 };
 
 let stream = null;
 let facingMode = "environment"; // "user" | "environment"
+let resetHoldTimer = null;
 
 function qs() {
   const p = new URLSearchParams(window.location.search);
@@ -24,7 +20,6 @@ function qs() {
     facing: p.get("facing"), // user|environment
     postMessage: p.get("postMessage") !== "0",
     targetOrigin: p.get("targetOrigin") || "*",
-    minLoadingMs: Math.max(0, Number(p.get("minLoadingMs") || "650") || 0),
     jpegQuality: Math.min(0.98, Math.max(0.5, Number(p.get("jpegQuality") || "0.92") || 0.92)),
   };
 }
@@ -32,15 +27,14 @@ function qs() {
 const opts = qs();
 if (opts.facing === "user" || opts.facing === "environment") facingMode = opts.facing;
 
-function show(which) {
-  const map = {
-    init: els.panelInit,
-    preview: els.panelPreview,
-    loading: els.panelLoading,
-    result: els.panelResult,
-  };
-  Object.values(map).forEach((n) => (n.hidden = true));
-  map[which].hidden = false;
+function showOverlay(text, hint = "") {
+  els.overlayText.textContent = text;
+  els.overlayHint.textContent = hint;
+  els.overlay.hidden = false;
+}
+
+function hideOverlay() {
+  els.overlay.hidden = true;
 }
 
 async function stopStream() {
@@ -50,12 +44,13 @@ async function stopStream() {
 }
 
 async function startCamera() {
-  els.btnEnable.hidden = true;
-  els.initText.textContent = "Запрашиваем доступ к камере…";
+  els.btnShot.disabled = true;
+  els.resultImg.hidden = true;
+  hideOverlay();
 
   if (!navigator.mediaDevices?.getUserMedia) {
-    els.initText.textContent = "Этот браузер не поддерживает доступ к камере.";
-    els.initHint.textContent = "";
+    showOverlay("Этот браузер не поддерживает доступ к камере.", "");
+    els.btnShot.disabled = false;
     return;
   }
 
@@ -72,28 +67,28 @@ async function startCamera() {
     await stopStream();
     stream = await navigator.mediaDevices.getUserMedia(constraints);
     els.video.srcObject = stream;
-    show("preview");
+    hideOverlay();
+    els.btnShot.disabled = false;
   } catch (e) {
     const name = e?.name || "Error";
     const msg = e?.message || String(e);
 
-    // Some browsers require a user gesture to call getUserMedia.
-    const gestureLikely = name === "NotAllowedError" || name === "SecurityError";
-
     if (window.isSecureContext !== true) {
-      els.initText.textContent = "Нужен HTTPS (или localhost), чтобы включить камеру.";
-      els.initHint.textContent = msg;
+      showOverlay("Нужен HTTPS (или localhost), чтобы включить камеру.", msg);
+      els.btnShot.disabled = false;
       return;
     }
 
+    // In some browsers getUserMedia needs a user gesture.
+    const gestureLikely = name === "NotAllowedError" || name === "SecurityError";
     if (gestureLikely) {
-      els.initText.textContent = "Нажми «Включить камеру», чтобы запросить доступ.";
-      els.btnEnable.hidden = false;
+      showOverlay("Нажми на кнопку затвора, чтобы запросить доступ к камере.", "");
+      els.btnShot.disabled = false;
       return;
     }
 
-    els.initText.textContent = "Не удалось открыть камеру.";
-    els.initHint.textContent = `${name}: ${msg}`;
+    showOverlay("Не удалось открыть камеру.", `${name}: ${msg}`);
+    els.btnShot.disabled = false;
   }
 }
 
@@ -131,13 +126,16 @@ function toJpegDataUrl(canvas, quality) {
 
 async function takePhoto() {
   els.btnShot.disabled = true;
-  els.btnFlip.disabled = true;
 
   try {
-    await waitForVideoReady(els.video);
+    // Single-button UI: if camera isn't running yet, try to start it.
+    if (!stream) {
+      showOverlay("Запрашиваем доступ к камере…", "");
+      await startCamera();
+      return;
+    }
 
-    show("loading");
-    const startedAt = performance.now();
+    await waitForVideoReady(els.video);
 
     const vw = els.video.videoWidth;
     const vh = els.video.videoHeight;
@@ -145,7 +143,6 @@ async function takePhoto() {
     const ctx = canvas.getContext("2d", { alpha: false });
     if (!ctx) throw new Error("Canvas context unavailable");
 
-    // Keep a portrait-ish output when possible, but preserve content.
     const outW = vw;
     const outH = vh;
     canvas.width = outW;
@@ -154,16 +151,11 @@ async function takePhoto() {
 
     const dataUrl = toJpegDataUrl(canvas, opts.jpegQuality);
 
-    // Ensure visible loading even on fast devices.
-    const elapsed = performance.now() - startedAt;
-    const waitMs = Math.max(0, opts.minLoadingMs - elapsed);
-    if (waitMs) await new Promise((r) => setTimeout(r, waitMs));
-
     await stopStream();
 
-    // Result: show only an image block.
     els.resultImg.src = dataUrl;
-    show("result");
+    els.resultImg.hidden = false;
+    hideOverlay();
 
     // Make it embed-friendly: notify parent window.
     if (opts.postMessage && window.parent && window.parent !== window) {
@@ -173,27 +165,46 @@ async function takePhoto() {
       );
     }
   } catch (e) {
-    show("init");
-    els.initText.textContent = "Не получилось сделать фото. Попробуй ещё раз.";
-    els.initHint.textContent = e?.message || String(e);
+    showOverlay("Не получилось сделать фото. Попробуй ещё раз.", e?.message || String(e));
   } finally {
     els.btnShot.disabled = false;
-    els.btnFlip.disabled = false;
   }
 }
 
-async function flipCamera() {
-  facingMode = facingMode === "environment" ? "user" : "environment";
-  show("init");
+async function resetToCamera() {
+  els.resultImg.hidden = true;
+  els.resultImg.src = "";
+  hideOverlay();
   await startCamera();
 }
 
-els.btnEnable.addEventListener("click", () => startCamera());
 els.btnShot.addEventListener("click", () => takePhoto());
-els.btnFlip.addEventListener("click", () => flipCamera());
+
+function clearResetHoldTimer() {
+  if (resetHoldTimer) window.clearTimeout(resetHoldTimer);
+  resetHoldTimer = null;
+}
+
+function armResetHold() {
+  clearResetHoldTimer();
+  resetHoldTimer = window.setTimeout(() => {
+    resetHoldTimer = null;
+    resetToCamera();
+  }, 3000);
+}
+
+// Long press on the photo for 3s -> restart camera.
+els.resultImg.addEventListener("pointerdown", (e) => {
+  if (els.resultImg.hidden) return;
+  els.resultImg.setPointerCapture?.(e.pointerId);
+  armResetHold();
+});
+["pointerup", "pointercancel", "pointerleave", "lostpointercapture"].forEach((ev) => {
+  els.resultImg.addEventListener(ev, () => clearResetHoldTimer());
+});
 
 // Start immediately to request permission on first open.
-show("init");
+showOverlay("Запрашиваем доступ к камере…", "Нужен HTTPS (или localhost).");
 startCamera();
 
 // Clean up on page hide (e.g., iOS background / iframe navigation).
