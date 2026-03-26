@@ -7,7 +7,6 @@ const els = {
   resultImg: document.getElementById("resultImg"),
   overlay: document.getElementById("overlay"),
   overlayText: document.getElementById("overlayText"),
-  overlayHint: document.getElementById("overlayHint"),
 };
 
 let stream = null;
@@ -29,7 +28,6 @@ if (opts.facing === "user" || opts.facing === "environment") facingMode = opts.f
 
 function showOverlay(text, hint = "") {
   els.overlayText.textContent = text;
-  els.overlayHint.textContent = hint;
   els.overlay.hidden = false;
 }
 
@@ -67,6 +65,15 @@ async function startCamera() {
     await stopStream();
     stream = await navigator.mediaDevices.getUserMedia(constraints);
     els.video.srcObject = stream;
+    // Help iOS/Safari avoid showing play UI; muted+playsinline is required.
+    try {
+      els.video.muted = true;
+      els.video.playsInline = true;
+      els.video.setAttribute("playsinline", "");
+      els.video.setAttribute("webkit-playsinline", "");
+      els.video.disablePictureInPicture = true;
+      await els.video.play().catch(() => {});
+    } catch {}
     hideOverlay();
     els.btnShot.disabled = false;
   } catch (e) {
@@ -74,7 +81,7 @@ async function startCamera() {
     const msg = e?.message || String(e);
 
     if (window.isSecureContext !== true) {
-      showOverlay("Нужен HTTPS (или localhost), чтобы включить камеру.", msg);
+      showOverlay("");
       els.btnShot.disabled = false;
       return;
     }
@@ -82,12 +89,12 @@ async function startCamera() {
     // In some browsers getUserMedia needs a user gesture.
     const gestureLikely = name === "NotAllowedError" || name === "SecurityError";
     if (gestureLikely) {
-      showOverlay("Нажми на кнопку затвора, чтобы запросить доступ к камере.", "");
+      showOverlay("");
       els.btnShot.disabled = false;
       return;
     }
 
-    showOverlay("Не удалось открыть камеру.", `${name}: ${msg}`);
+    showOverlay("");
     els.btnShot.disabled = false;
   }
 }
@@ -130,7 +137,6 @@ async function takePhoto() {
   try {
     // Single-button UI: if camera isn't running yet, try to start it.
     if (!stream) {
-      showOverlay("Запрашиваем доступ к камере…", "");
       await startCamera();
       return;
     }
@@ -165,7 +171,7 @@ async function takePhoto() {
       );
     }
   } catch (e) {
-    showOverlay("Не получилось сделать фото. Попробуй ещё раз.", e?.message || String(e));
+    showOverlay("");
   } finally {
     els.btnShot.disabled = false;
   }
@@ -204,7 +210,6 @@ els.resultImg.addEventListener("pointerdown", (e) => {
 });
 
 // Start immediately to request permission on first open.
-showOverlay("Запрашиваем доступ к камере…", "Нужен HTTPS (или localhost).");
 startCamera();
 
 // Clean up on page hide (e.g., iOS background / iframe navigation).
