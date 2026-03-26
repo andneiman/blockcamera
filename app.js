@@ -11,6 +11,12 @@ let stream = null;
 let facingMode = "environment"; // "user" | "environment"
 let resetHoldTimer = null;
 
+function setShutterVisible(visible) {
+  els.btnShot.hidden = !visible;
+  els.btnShot.classList.toggle("isHidden", !visible);
+  if (!visible) els.btnShot.blur?.();
+}
+
 function qs() {
   const p = new URLSearchParams(window.location.search);
   return {
@@ -32,7 +38,7 @@ async function stopStream() {
 
 async function startCamera() {
   els.btnShot.disabled = true;
-  els.btnShot.hidden = false;
+  setShutterVisible(true);
   els.resultImg.hidden = true;
 
   if (!navigator.mediaDevices?.getUserMedia) {
@@ -151,7 +157,7 @@ async function takePhoto() {
 
     els.resultImg.src = dataUrl;
     els.resultImg.hidden = false;
-    els.btnShot.hidden = true;
+    setShutterVisible(false);
 
     // Make it embed-friendly: notify parent window.
     if (opts.postMessage && window.parent && window.parent !== window) {
