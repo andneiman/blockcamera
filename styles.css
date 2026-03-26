@@ -2,7 +2,6 @@
   --bg: #0b0d12;
   --fg: #e8ebf5;
   --muted: #a9afc3;
-  --overlay: color-mix(in srgb, #000 55%, transparent);
   --shutterOuter: rgba(255, 255, 255, 0.88);
   --shutterInner: rgba(255, 255, 255, 0.95);
 }
@@ -70,24 +69,6 @@ body {
   cursor: not-allowed;
 }
 
-.overlay {
-  position: absolute;
-  inset: 0;
-  display: grid;
-  place-items: center;
-  padding: 18px;
-  background: var(--overlay);
-  /* Never block shutter clicks */
-  pointer-events: none;
-}
-
-.overlayText {
-  font-size: 14px;
-  line-height: 1.35;
-  text-align: center;
-  max-width: 520px;
-}
-
 /* Hide native media controls/overlays (Safari/Chrome) */
 video::-webkit-media-controls,
 video::-webkit-media-controls-enclosure,
@@ -100,5 +81,5 @@ video::-webkit-media-controls-start-playback-button {
 
 /* Embed-friendly: allow the host to make background transparent if desired */
 @media (prefers-color-scheme: light) {
-  :root { --bg: #f7f8fc; --fg: #121522; --muted: #4c5573; --overlay: color-mix(in srgb, #fff 70%, transparent); --shutterOuter: rgba(255, 255, 255, 0.92); --shutterInner: rgba(255, 255, 255, 0.98); }
+  :root { --bg: #f7f8fc; --fg: #121522; --muted: #4c5573; --shutterOuter: rgba(255, 255, 255, 0.92); --shutterInner: rgba(255, 255, 255, 0.98); }
 }

@@ -5,8 +5,6 @@ const els = {
   video: document.getElementById("video"),
   canvas: document.getElementById("canvas"),
   resultImg: document.getElementById("resultImg"),
-  overlay: document.getElementById("overlay"),
-  overlayText: document.getElementById("overlayText"),
 };
 
 let stream = null;
@@ -26,16 +24,6 @@ function qs() {
 const opts = qs();
 if (opts.facing === "user" || opts.facing === "environment") facingMode = opts.facing;
 
-function showOverlay(text, hint = "") {
-  const t = (text || "").trim();
-  els.overlayText.textContent = t;
-  els.overlay.hidden = t.length === 0;
-}
-
-function hideOverlay() {
-  els.overlay.hidden = true;
-}
-
 async function stopStream() {
   if (!stream) return;
   for (const t of stream.getTracks()) t.stop();
@@ -44,11 +32,10 @@ async function stopStream() {
 
 async function startCamera() {
   els.btnShot.disabled = true;
+  els.btnShot.hidden = false;
   els.resultImg.hidden = true;
-  hideOverlay();
 
   if (!navigator.mediaDevices?.getUserMedia) {
-    showOverlay("Этот браузер не поддерживает доступ к камере.", "");
     els.btnShot.disabled = false;
     return;
   }
@@ -81,14 +68,12 @@ async function startCamera() {
     } catch {}
     // If something pauses the video (macOS overlays), immediately resume.
     els.video.onpause = () => els.video.play().catch(() => {});
-    hideOverlay();
     els.btnShot.disabled = false;
   } catch (e) {
     const name = e?.name || "Error";
     const msg = e?.message || String(e);
 
     if (window.isSecureContext !== true) {
-      hideOverlay();
       els.btnShot.disabled = false;
       return;
     }
@@ -96,12 +81,10 @@ async function startCamera() {
     // In some browsers getUserMedia needs a user gesture.
     const gestureLikely = name === "NotAllowedError" || name === "SecurityError";
     if (gestureLikely) {
-      hideOverlay();
       els.btnShot.disabled = false;
       return;
     }
 
-    hideOverlay();
     els.btnShot.disabled = false;
   }
 }
@@ -168,7 +151,7 @@ async function takePhoto() {
 
     els.resultImg.src = dataUrl;
     els.resultImg.hidden = false;
-    hideOverlay();
+    els.btnShot.hidden = true;
 
     // Make it embed-friendly: notify parent window.
     if (opts.postMessage && window.parent && window.parent !== window) {
@@ -178,7 +161,6 @@ async function takePhoto() {
       );
     }
   } catch (e) {
-    hideOverlay();
   } finally {
     els.btnShot.disabled = false;
   }
@@ -187,7 +169,6 @@ async function takePhoto() {
 async function resetToCamera() {
   els.resultImg.hidden = true;
   els.resultImg.src = "";
-  hideOverlay();
   await startCamera();
 }
 
